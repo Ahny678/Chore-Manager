@@ -1,69 +1,82 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios";
 import styles from "./Task.module.css";
+
 function TaskApp() {
-  const [tasks, setTask] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [filter, setFilter] = useState(null);
 
-  const addTask = () => {
+  // Username: ask once, then save in localStorage
+  const [username] = useState(() => {
+    let stored = localStorage.getItem("username");
+    if (!stored) {
+      stored = prompt("Enter your username:") || `guest-${Date.now()}`;
+      localStorage.setItem("username", stored);
+    }
+    return stored;
+  });
+
+  // Load tasks from backend
+  useEffect(() => {
+    axios.get(`/api/tasks/${username}`).then((res) => setTasks(res.data));
+  }, [username]);
+
+  const addTask = async () => {
     if (!title.trim() || !desc.trim()) return;
-    const newTask = { title: title, desc: desc, completed: false };
-    setTask((t) => [...t, newTask]);
+    const res = await axios.post(`/api/tasks/${username}`, {
+      title,
+      desc,
+    });
+    setTasks((t) => [...t, res.data]);
     setTitle("");
     setDesc("");
   };
 
-  const handleTitleChange = (e) => {
-    setTitle(e.target.value);
+  const toggleCompleted = async (id, completed) => {
+    const res = await axios.put(`/api/tasks/${username}/${id}`, {
+      completed: !completed,
+    });
+    setTasks((t) => t.map((task) => (task.id === id ? res.data : task)));
   };
 
-  const handleDescChange = (e) => {
-    setDesc(e.target.value);
+  const deleteTask = async (id) => {
+    await axios.delete(`/api/tasks/${username}/${id}`);
+    setTasks((t) => t.filter((task) => task.id !== id));
   };
 
-  const toggleCompleted = (index) => {
-    const updatedTasks = tasks.map((task, i) =>
-      i === index ? { ...task, completed: !task.completed } : task
-    );
-    setTask(updatedTasks);
-  };
-
-  const deleteTask = (i) => {
-    const newTask = tasks.filter((_, index) => i !== index);
-    setTask(newTask);
-  };
-
-  const renderFilter = (value) => {
-    setFilter(value);
-  };
-
-  const clearFilter = () => {
-    setFilter(null);
-  };
-
+  const renderFilter = (value) => setFilter(value);
+  const clearFilter = () => setFilter(null);
   const clearCompletedTasks = () => {
-    const newTasks = tasks.filter((t) => t.completed === false);
-    setTask(newTasks);
+    tasks.filter((t) => t.completed === true).forEach((t) => deleteTask(t.id));
   };
 
   const moveTaskUp = (index) => {
     if (index === 0) return;
-    var upTasks = [...tasks];
-    [upTasks[index], upTasks[index - 1]] = [upTasks[index - 1], upTasks[index]];
-    setTask(upTasks);
+    const reordered = [...tasks];
+    [reordered[index], reordered[index - 1]] = [
+      reordered[index - 1],
+      reordered[index],
+    ];
+    setTasks(reordered);
   };
 
   const moveTaskDown = (index) => {
     if (index === tasks.length - 1) return;
-    var upTasks = [...tasks];
-    [upTasks[index], upTasks[index + 1]] = [upTasks[index + 1], upTasks[index]];
-    setTask(upTasks);
+    const reordered = [...tasks];
+    [reordered[index], reordered[index + 1]] = [
+      reordered[index + 1],
+      reordered[index],
+    ];
+    setTasks(reordered);
   };
+
   return (
     <>
       <header className={styles.header}>
         <h3>AHNY'S CHORE MANAGER</h3>
+        <small>Logged in as: {username}</small>
       </header>
 
       <main>
@@ -94,14 +107,8 @@ function TaskApp() {
           </div>
 
           <div className={styles.taskSummary}>
-            <p>
-              Completed Tasks left:{" "}
-              {tasks.filter((t) => t.completed === true).length}
-            </p>
-            <p>
-              Pending Tasks left:{" "}
-              {tasks.filter((t) => t.completed === false).length}
-            </p>
+            <p>Completed Tasks: {tasks.filter((t) => t.completed).length}</p>
+            <p>Pending Tasks: {tasks.filter((t) => !t.completed).length}</p>
             <button onClick={clearCompletedTasks}>Clear Completed Tasks</button>
           </div>
         </section>
@@ -111,17 +118,19 @@ function TaskApp() {
             {tasks
               .filter((task) => filter === null || task.completed === filter)
               .map((task, index) => (
-                <li key={index} className={styles.taskItem}>
+                <li key={task.id} className={styles.taskItem}>
                   <div className={styles.taskContent}>
-                    {task.title}: {task.desc}
+                    {task.title}: {task.description}
                   </div>
                   <div className={styles.taskButtons}>
                     <button onClick={() => moveTaskUp(index)}>⬆️</button>
                     <button onClick={() => moveTaskDown(index)}>⬇️</button>
-                    <button onClick={() => toggleCompleted(index)}>
+                    <button
+                      onClick={() => toggleCompleted(task.id, task.completed)}
+                    >
                       {task.completed ? "☑️" : "✖️"}
                     </button>
-                    <button onClick={() => deleteTask(index)}>🗑️</button>
+                    <button onClick={() => deleteTask(task.id)}>🗑️</button>
                   </div>
                 </li>
               ))}
@@ -133,13 +142,13 @@ function TaskApp() {
           <input
             type="text"
             value={title}
-            onChange={(e) => handleTitleChange(e)}
+            onChange={(e) => setTitle(e.target.value)}
           />
           <label>Task Description</label>
           <input
             type="text"
             value={desc}
-            onChange={(e) => handleDescChange(e)}
+            onChange={(e) => setDesc(e.target.value)}
           />
           <button onClick={addTask}>Submit</button>
         </section>
