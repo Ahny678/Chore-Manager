@@ -10,6 +10,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: todo_db
     volumes:
+      # localstorage:stprage in docker container.so data doesnt get lost
       - ./db-data:/var/lib/postgresql/data # persistent storage
 
   backend:
@@ -22,11 +23,13 @@ services:
       DB_PASSWORD: postgres
       DB_NAME: todo_db
       PORT: 5000
+      # start db before startign backend
     depends_on:
       - db
     ports:
       - "5000:5000"
   frontend:
+    # build: { context, args }
     build:
       context: ./frontend
       args:
@@ -37,4 +40,32 @@ services:
       - backend
     ports:
       - "8080:80"
-# port 80 is mapped to apache. ->sudo lsof -i :80
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: chore_prometheus
+    restart: always
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: chore_node_exporter
+    restart: always
+    network_mode: host # runs on host network so it can see host system metrics
+    pid: host # allows process metrics from host
+    volumes: #mount parts of the my filesystem inside the container (read-only)
+      - /proc:/host/proc:ro #access to process info
+      - /sys:/host/sys:ro #access to system info
+      - /:/rootfs:ro #access to the whole root filesystem
+
+      #tell Node Exporter where to find host system data and which virtual folders to ignore.
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)"
+    ports:
+      - "9100:9100"

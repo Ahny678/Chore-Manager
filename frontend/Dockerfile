@@ -10,7 +10,7 @@ RUN npm install
 # Copy the rest of the source code
 COPY . .
 
-# Set build-time environment variable for base path
+# Set build-time environment variable for base path. ARG VITE_BASE_PATH=/ a default if not set in docker compose
 ARG VITE_BASE_PATH=/
 ENV VITE_BASE_PATH=$VITE_BASE_PATH
 

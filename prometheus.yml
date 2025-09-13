@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 15s # how often to scrape targets
+
+scrape_configs:
+  # Monitor Prometheus itself
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Monitor backend API
+  - job_name: "backend"
+    static_configs:
+      - targets: ["backend:5000"]
+
+  - job_name: "node_exporter"
+    static_configs:
+      - targets: ["172.17.0.1:9100"]
+        labels:
+          instance: "localhost:9100"
+# NB: Node Exporter is running on the host network (port 9100), so to reach it,
+#  Prometheus must connect to the host’s IP address from inside the container
+
+# labels was added to override the instance label in your config
+#  so it to always show "localhost:9100"
+# unless i wouldve had to do instance="172.17.0.1:9100" all the time

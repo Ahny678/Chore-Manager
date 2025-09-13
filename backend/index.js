@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import pkg from "pg";
 import dotenv from "dotenv";
+import metricsRouter from "./metric.js";
+
 dotenv.config();
 
 const { Pool } = pkg;
@@ -9,6 +11,9 @@ const { Pool } = pkg;
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+//  mount metrics
+app.use(metricsRouter);
 
 // DB pool
 const pool = new Pool({
